@@ -7,21 +7,33 @@
 #include <chrono>
 #include <map>
 #include <vector>
+#include <algorithm>
 
 namespace Lab6 {
 
-class Object{
+class Object {
     public:
     std::string name;
     double price;
     float quantity;
     std::string unit ;
-    double Sum();
+    double Sum()
+    {
+        return price*quantity;
+    }
 };
-double Object::Sum()
-{
-    return price*quantity;
-}
+class ShoppingList {
+    public:
+    std::vector <Lab6::Object> items;
+    double TotalSum()
+    {
+        double totalSum=0;
+        for(int i=0;i<items.size();i++) {
+            totalSum+= items.at(i).Sum();
+        }
+        return totalSum;
+    }
+};
 enum class ColLab{
     white,
     red,
@@ -43,11 +55,17 @@ enum class Operation{
     null
 };
 
-inline int toGuiPosition(int position)
+bool IsPositionValid(int pos, int max_pos)
+{
+    if(pos >= max_pos || pos < 0)
+    return false;
+    else return true;
+}
+inline int ToGuiPosition(int position)
 {
     return ++position;
 }
-inline int toGenPosition(int position)
+inline int ToGenPosition(int position)
 {
     return --position;
 }
@@ -60,7 +78,7 @@ void PrintAuthor()
 {
     ChangeColor(ColLab::white);
     system("cls");
-    std::cout << "Author: Kacper Aleks (CZ/NP 12:15) \n\n" ;
+    std::cout << "Author: Kacper Aleks\n\n" ;
 }
 void PrintError(ErrLab errorName)
 {
@@ -86,56 +104,47 @@ Operation ConvertOperation(char c)
     }
     return Operation::null;
 }
-bool CmpNameAttr(Object object, Operation op)
+bool CmpNameAttr(Object object, Operation op, std::string givenValue)
 {
     if(op == Operation::equal){
-        std::string tmp;
-        std::cout << "Enter wanted name: ";
-        std::cin >> tmp;
-        if(object.name == tmp) return true;
+        if(object.name == givenValue) return true;
         else return false;
     }
     else {
-        char tmpC;
-        std::cout << "Enter wanted letter: ";
-        std::cin >> tmpC;
-        if(object.name[0] == tmpC) return true;
+        if(object.name[0] == givenValue[0]) return true;
         else return false;
     }
 }
-template <typename Member> bool CmpGenericAttr(Member m ,Operation op)
+template <typename Member> bool CmpGenericAttr(Member value ,Member givenValue,Operation op)
 {
-    Member tmp;
-    std::cout << "Enter reference number: ";
-    std::cin >> tmp;
     if(op == Operation::equal) {
-        if(tmp == m) return true;
+        if(value == givenValue) return true;
         else return false;
     }
     if(op == Operation::bigger) {
-        if(tmp < m) return true;
+        if(value > givenValue) return true;
         else return false;
     }
-    else {
-        if(tmp > m) return true;
+    if(op == Operation::lower) {
+        if(value < givenValue) return true;
         else return false;
     }
+    return false;
 }
-Lab6::Object ReadObject(Object & item, int number)
+void ReadObject(Object & item)
 {
     fflush(stdin);
     ChangeColor(ColLab::cyan);
-    printf("You are currently entering data for object number [%d]:\n", number);
+    printf("============================\n");
     ChangeColor(ColLab::yellow);
-    printf("[%d] Enter object's name: ", number);
+    std::cout << "Enter object's name: ";
     std::cin >> item.name;
-    printf("[%d] Enter object's price per measurement unit: ", number);
+    std::cout << "Enter object's price per measurement unit: ";
     std::cin >> item.price;
-    printf("[%d] Enter object's quantity: ", number);
+    std::cout << "Enter object's quantity: ";
     std::cin >> item.quantity;
-    printf("[%d] Enter measurement unit: ", number);
+    std::cout << "Enter measurement unit: ";
     std::cin >> item.unit;
-    return item;
 }
 void PrintObject(Object item, int number)
 {
@@ -158,26 +167,24 @@ void PrintObject(Object item, int number)
     ChangeColor(ColLab::yellow);
     std::cout << item.unit<< "\n\n";
 }
-void PrintTable(std::vector <Lab6::Object> table)
+void PrintTable(ShoppingList list)
 {
-    int tableSize= table.size();
+    int tableSize= list.items.size();
     ChangeColor(ColLab::red);
     if(tableSize == 0) PrintError(ErrLab::noObj);
     else{
-        float totalSum=0;
         ChangeColor(ColLab::cyan);
         printf("Current shopping list\n\n\n");
         for(int i=0;i<tableSize;i++){
-            PrintObject(table.at(i), toGuiPosition(i));
-            totalSum += table.at(i).Sum();
+            PrintObject(list.items.at(i), ToGuiPosition(i));
         }
-        printf("Total sum is: %.2f;\n\n", totalSum);
+        std::cout << "Total sum is: " << list.TotalSum()<< ";\n\n";
         system("Pause");
     }
 }
-void PrintSelected(std::vector <Lab6::Object> table)
+void PrintSelected(ShoppingList list)
 {
-    int tableSize= table.size();
+    int tableSize= list.items.size();
     if(tableSize == 0 ) {
         PrintError(ErrLab::noObj);
         return;
@@ -194,82 +201,96 @@ void PrintSelected(std::vector <Lab6::Object> table)
         fflush(stdin);
         std::cin >> attribute >> c;
         Operation op = ConvertOperation(c);
+
         if(attribute == "0" || c == '0') return;
-        for(int i =0; i<tableSize; i++){
-            if(attribute == "name"){
-                if(CmpNameAttr(table.at(i), op)) {
-                    system("cls");
-                    PrintObject(table.at(i), toGuiPosition(i));
+        if(attribute == "name"){
+            std::string refStr;
+            std::cout << "Enter reference value: ";
+            std::cin >> refStr;
+            system("cls");
+            for(int i =0; i<tableSize; i++){
+                std::string tmp;
+                if(CmpNameAttr(list.items.at(i), op, refStr)) {
+                    PrintObject(list.items.at(i), ToGuiPosition(i));
                 }
             }
-            if(attribute == "price") {
-                if( CmpGenericAttr <double> (table.at(i).price ,op)) {
-                    system("cls");
-                    PrintObject(table.at(i), toGuiPosition(i));
+        }
+        if(attribute == "price") {
+            double refDoub;
+            std::cout << "Enter reference value: ";
+            std::cin >> refDoub;
+            system("cls");
+            for(int i =0; i<tableSize; i++){
+                if( CmpGenericAttr <double> (list.items.at(i).price, refDoub, op)) {
+                    PrintObject(list.items.at(i), ToGuiPosition(i));
                 }
             }
-            if(attribute == "quantity") {
-                if(CmpGenericAttr <float> (table.at(i).quantity ,op)) {
-                    system("cls");
-                    PrintObject(table.at(i), toGuiPosition(i));
+        }
+        if(attribute == "quantity") {
+            float refFloa;
+            std::cout << "Enter reference value: ";
+            std::cin >> refFloa;
+            system("cls");
+            for(int i =0; i<tableSize; i++){
+                if(CmpGenericAttr <float> (list.items.at(i).quantity, refFloa ,op)) {
+                    PrintObject(list.items.at(i), ToGuiPosition(i));
                 }
             }
         }
         system("pause");
     }
 }
-void InitNewTab(std::vector <Lab6::Object> & table)
+void InitNewTab(ShoppingList & list)
 {
-    int tableSize= table.size();
+    int tableSize;
     ChangeColor(ColLab::yellow);
     printf("Enter the table size: ");
     std::cin >> tableSize;
     if(tableSize == 0);
-    else table.resize(tableSize);
-    for(int i=0;i<tableSize;i++) ReadObject(table.at(i), toGuiPosition(i));
+    else list.items.resize(tableSize);
+    std::for_each(list.items.begin(), list.items.end(), [](Object &n){ReadObject(n);});
 }
-void DelTab(std::vector <Lab6::Object> & table)
-{
-    int tableSize= table.size();
-    if(tableSize != 0) table.resize(0);
+void DelTab(ShoppingList & list)
+{  
+    if(!list.items.empty()) list.items.clear();
     else  PrintError(ErrLab::noObj);
 }
-void AddObject(std::vector <Lab6::Object> & table)
+void AddObject(ShoppingList & list)
 {
-    int tableSize= table.size();
-    table.resize(++tableSize);
-    ReadObject(table.at(tableSize-1), tableSize);
+    Object tmp;
+    ReadObject( tmp);
+    list.items.push_back(tmp);
 }
-void DelObjectPos(std::vector <Lab6::Object> & table)
+void DelObjectPos(ShoppingList & list)
 {
-    int tableSize= table.size();
+    int tableSize= list.items.size();
     int pos;
-    if(table.empty()) {
+    if(list.items.empty()) {
         PrintError((ErrLab::noObj));
         return;
     }
     while(true){
-        PrintTable(table);
+        PrintTable(list);
         ChangeColor(ColLab::yellow);
-        printf("\nWhat position should be deleted? [Enter \'0\' to leave]: ");
+        std::cout << "\nWhat position should be deleted? [Enter \'0\' to leave]: ";
         fflush(stdin);
         std::cin >> pos;
         if(pos == 0) return;
-        pos= toGenPosition(pos);
-        if(pos >= tableSize || pos < 0)  PrintError(ErrLab::wrongPos);
+        pos = ToGenPosition(pos);
+        if(!IsPositionValid(pos, tableSize))  PrintError(ErrLab::wrongPos);
         else break;
     }
 
-    if(tableSize == 1) table.resize(0);
+    if(tableSize == 1) list.items.clear();
     else {
-        for(int i = pos -1; i< tableSize; i++) table.at(i) = table.at(i+1);
-        table.resize(--tableSize);
+        for(int i = pos ; i< tableSize-1; i++) list.items.at(i) = list.items.at(i+1);
+        list.items.erase(list.items.end());
     }
 }
-int Menu(std::vector <Lab6::Object> & arg1)
+int Menu(ShoppingList & list)
 {
     PrintAuthor();
-    std::cout << "Address of the table's first element: " << &arg1 << "\nCurrent size of table: " << arg1.size() << "\n";
+    std::cout << "Address of the table's first element: " << &list << "\nCurrent size of table: " << list.items.size() << "\n";
     printf("\n\n");
     ChangeColor(ColLab::cyan);
     printf("Welcome to the program that imitates a paper shopping list!\n");
@@ -280,32 +301,32 @@ int Menu(std::vector <Lab6::Object> & arg1)
     switch(c){
         case '1':
         system("cls");
-        InitNewTab(arg1);
+        InitNewTab(list);
         break;
 
         case '2':
         system("cls");
-        DelTab(arg1);
+        DelTab(list);
         break;
 
         case '3':
         system("cls");
-        AddObject(arg1);
+        AddObject(list);
         break;
 
         case '4':
         system("cls");
-        DelObjectPos(arg1);
+        DelObjectPos(list);
         break;
 
         case '5':
         system("cls");
-        PrintTable(arg1);
+        PrintTable(list);
         break;
 
         case '6':
         system("cls");
-        PrintSelected(arg1);
+        PrintSelected(list);
         system("Pause");
         break;
 
@@ -324,7 +345,7 @@ int Menu(std::vector <Lab6::Object> & arg1)
 }
 
 int main() {
-    std::vector<Lab6::Object> table;
-    while (Lab6::Menu(table));
+    Lab6::ShoppingList list;
+    while (Lab6::Menu(list));
     return 0;
 }
